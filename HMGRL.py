@@ -96,7 +96,7 @@ def HMGRL_train(model, y_train, y_test, event_num, X_vector,X_three_vector, adj,
 
     save_dir = getattr(args, "save_path", "./saved_models")
     os.makedirs(save_dir, exist_ok=True)
-    best_loss = float("inf")
+    best_acc = 0.0
 
     for epoch in range(args.ep):
         my_loss = my_loss1()
@@ -122,6 +122,8 @@ def HMGRL_train(model, y_train, y_test, event_num, X_vector,X_three_vector, adj,
         #
         model.eval()
         testing_loss = 0.0
+        preds = []
+        labels = []
         # pre_score = np.zeros((0, event_num), dtype=float)
         with torch.no_grad():
             for batch_idx, data in enumerate(test_loader, 0):
@@ -134,8 +136,18 @@ def HMGRL_train(model, y_train, y_test, event_num, X_vector,X_three_vector, adj,
                 # pre_score = np.vstack((pre_score, F.softmax(X).cpu().numpy()))
                 loss = torch.nn.functional.cross_entropy(X, test_edge_labels)
                 testing_loss += loss.item()
+
+                preds.append(F.softmax(X, dim=1).cpu().numpy())
+                labels.append(test_edge_labels.cpu().numpy())
+
                 del test_edge
                 gc.collect()
+
+        preds = np.vstack(preds)
+        labels = np.concatenate(labels)
+        pred_type = np.argmax(preds, axis=1)
+        result_all, _ = evaluate(pred_type, preds, labels, event_num)
+        avg_test_acc = result_all[2][0]  # Accuracy nằm ở index 2
 
         # pred_type = np.argmax(pre_score, axis=1)
         # result_all_now, _ = evaluate(pred_type, pre_score, y_test, event_num)
@@ -143,13 +155,11 @@ def HMGRL_train(model, y_train, y_test, event_num, X_vector,X_three_vector, adj,
         print('epoch [%d] trn_los: %.6f tet_los: %.6f ' % (
             epoch + 1, running_loss / len_train, testing_loss / len_test))
         
-
-        avg_test_loss = testing_loss / len_test
-        if avg_test_loss < best_loss:
-            best_loss = avg_test_loss
-            save_path = os.path.join(save_dir, f"hmgrl_best.pt")
+        if avg_test_acc > best_acc:
+            best_acc = avg_test_acc
+            save_path = os.path.join(save_dir, "hmgrl_best.pt")
             torch.save(model.module.state_dict(), save_path)
-            print(f"  -> Saved new best model to {save_path}")
+            print(f"-> Saved new best model (acc={best_acc:.4f}) to {save_path}")
 
     model.module.load_state_dict(torch.load(os.path.join(save_dir, "hmgrl_best.pt")))
 
