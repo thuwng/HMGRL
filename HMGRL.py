@@ -94,6 +94,10 @@ def HMGRL_train(model, y_train, y_test, event_num, X_vector,X_three_vector, adj,
     adj = adj.to(device)
     norm_adj = norm_adj.to(device)
 
+    save_dir = getattr(args, "save_path", "./saved_models")
+    os.makedirs(save_dir, exist_ok=True)
+    best_loss = float("inf")
+
     for epoch in range(args.ep):
         my_loss = my_loss1()
         running_loss = 0.0
@@ -138,9 +142,16 @@ def HMGRL_train(model, y_train, y_test, event_num, X_vector,X_three_vector, adj,
         # print(result_all_now)
         print('epoch [%d] trn_los: %.6f tet_los: %.6f ' % (
             epoch + 1, running_loss / len_train, testing_loss / len_test))
+        
+        if avg_test_loss < best_loss:
+            best_loss = avg_test_loss
+            save_path = os.path.join(save_dir, f"hmgrl_best.pt")
+            torch.save(model.module.state_dict(), save_path)
+            print(f"  -> Saved new best model to {save_path}")
+
+    model.module.load_state_dict(torch.load(os.path.join(save_dir, "hmgrl_best.pt")))
 
     pre_score = np.zeros((0, event_num), dtype=float)
-
     model.eval()
     with torch.no_grad():
         for batch_idx, data in enumerate(test_loader, 0):
