@@ -143,6 +143,8 @@ def HMGRL_train(model, y_train, y_test, event_num, X_vector,X_three_vector, adj,
         print('epoch [%d] trn_los: %.6f tet_los: %.6f ' % (
             epoch + 1, running_loss / len_train, testing_loss / len_test))
         
+
+        avg_test_loss = testing_loss / len_test
         if avg_test_loss < best_loss:
             best_loss = avg_test_loss
             save_path = os.path.join(save_dir, f"hmgrl_best.pt")
